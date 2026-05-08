@@ -60,13 +60,19 @@ def _list_daily_digests() -> list[str]:
 
 
 def _resolve_date(date: Optional[str]) -> Optional[str]:
-    """If date is None, return the most recent digest date; else validate."""
+    """If date is None, return the most recent digest date; else validate.
+
+    Accepts both daily ('YYYY-MM-DD') and annual ('annual-YYYY-MM-DD') formats.
+    """
     if date is None:
         ds = _list_daily_digests()
         return ds[0] if ds else None
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
-        return None
-    return date
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        return date
+    if re.fullmatch(r"annual-\d{4}-\d{2}-\d{2}", date):
+        if (DIGESTS_DIR / date).is_dir():
+            return date
+    return None
 
 
 def _read_candidates(date: str) -> list[dict]:
@@ -89,10 +95,18 @@ def _ranked_chunks(date: str) -> list[dict]:
       B) flat:     `# <title>`                   (older, manual runs)
 
     We pick (A) if any wrapper line exists, else fall back to (B).
+
+    For annual-* digests, ranked.md doesn't exist — use annual_review.md
+    instead (same heading conventions).
     """
     ranked = DIGESTS_DIR / date / "ranked.md"
     if not ranked.exists():
-        return []
+        # Annual digests have annual_review.md instead of ranked.md
+        annual_review = DIGESTS_DIR / date / "annual_review.md"
+        if annual_review.exists():
+            ranked = annual_review
+        else:
+            return []
     text = ranked.read_text(encoding="utf-8")
     has_wrapper = bool(re.search(r"(?m)^# \[#\d+\s+score=", text))
     if has_wrapper:

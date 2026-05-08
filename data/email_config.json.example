@@ -1,8 +1,0 @@
-{
-  "smtp_host": "smtp-mail.outlook.com",
-  "smtp_port": 587,
-  "smtp_user": "your-email@hotmail.com",
-  "smtp_password": "your-outlook-app-password",
-  "to": "your-email@hotmail.com",
-  "_comment": "Get an Outlook app password at account.microsoft.com → Security → App passwords. Copy this file to email_config.json (gitignored) and fill in. Leave smtp_user blank to skip the email channel entirely."
-}
