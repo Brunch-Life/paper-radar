@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Rounded-square tile, deep navy -->
+  <rect width="64" height="64" rx="14" fill="#0f1419"/>
+
+  <!-- Radar pulse arcs (back) -->
+  <circle cx="32" cy="38" r="22" fill="none" stroke="#2563eb" stroke-width="1.5" opacity="0.18"/>
+  <circle cx="32" cy="38" r="14" fill="none" stroke="#2563eb" stroke-width="1.5" opacity="0.32"/>
+
+  <!-- Paper page (foreground) -->
+  <g transform="translate(20 12)">
+    <!-- back paper, slightly offset -->
+    <rect x="2" y="3" width="22" height="28" rx="2.5" fill="#5b8def" opacity="0.45"/>
+    <!-- front paper -->
+    <rect x="0" y="0" width="22" height="28" rx="2.5" fill="#ffffff"/>
+    <!-- text lines -->
+    <rect x="3.5" y="6" width="15" height="1.6" rx="0.8" fill="#0f1419"/>
+    <rect x="3.5" y="10" width="13" height="1.6" rx="0.8" fill="#0f1419"/>
+    <rect x="3.5" y="14" width="15" height="1.6" rx="0.8" fill="#0f1419"/>
+    <rect x="3.5" y="18" width="10" height="1.6" rx="0.8" fill="#0f1419"/>
+  </g>
+
+  <!-- Radar ping dot (accent) -->
+  <circle cx="48" cy="50" r="4" fill="#6ab7ff"/>
+  <circle cx="48" cy="50" r="2" fill="#ffffff"/>
+</svg>
