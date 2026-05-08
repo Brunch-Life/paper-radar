@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Paper Radar">
+<title>📚 Paper Radar</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">📚</span>
+    <span class="brand-text">Paper Radar</span>
+  </div>
+
+  <select id="date-select" aria-label="选择日期"></select>
+
+  <div class="search-wrap">
+    <input id="search" type="search" placeholder="搜标题 / 一句话定位 / arxiv id…" autocomplete="off">
+    <kbd>/</kbd>
+  </div>
+
+  <button id="refresh" title="刷新（重新拉 MCP 数据）" aria-label="刷新">↻</button>
+  <button id="theme-toggle" title="切换主题" aria-label="切换主题">🌓</button>
+</header>
+
+<main id="main">
+  <div id="status-bar"></div>
+  <div id="papers"></div>
+  <div id="empty" class="empty hidden">
+    <p>没有匹配的论文。试试别的关键词，或换一天的 digest。</p>
+  </div>
+</main>
+
+<footer id="bottombar">
+  <span id="meta"></span>
+  <span class="spacer"></span>
+  <a href="/docs" target="_blank" class="muted">API 文档</a>
+  <span class="muted">·</span>
+  <a href="/healthz" target="_blank" class="muted">服务状态</a>
+</footer>
+
+<!-- Detail modal -->
+<dialog id="detail">
+  <div class="detail-head">
+    <h2 id="detail-title"></h2>
+    <button id="detail-close" aria-label="关闭">×</button>
+  </div>
+  <div id="detail-body" class="markdown"></div>
+  <div class="detail-actions">
+    <a id="detail-arxiv" target="_blank" rel="noopener">📄 arXiv</a>
+    <button id="detail-ask">🤖 复制 Ask Claude prompt</button>
+  </div>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>

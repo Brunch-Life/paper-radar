@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Loads at user login. Loopback-only FastAPI on :7878.
+       To install:    bash scripts/install_daemon.sh
+       To uninstall:  bash scripts/uninstall_daemon.sh
+       Logs:          ~/Library/Logs/paper-radar.{out,err}.log -->
+
+  <key>Label</key>
+  <string>com.chenyinuo.paper-radar</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chenyinuo/.claude/skills/paper-radar/.mcp-venv/bin/python</string>
+    <string>/Users/chenyinuo/.claude/skills/paper-radar/scripts/serve.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/chenyinuo/.claude/skills/paper-radar</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+    <key>Crashed</key>
+    <true/>
+  </dict>
+
+  <!-- Restart at most once every 10s if crashing repeatedly -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/chenyinuo/Library/Logs/paper-radar.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chenyinuo/Library/Logs/paper-radar.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+  </dict>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
