@@ -1,0 +1,22 @@
+# venv + outputs (generated)
+.venv/
+digests/
+data/cache/
+data/.scweet_cache/
+
+# secrets (must never push)
+data/webhook.txt
+data/email_config.json
+*.env
+.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
