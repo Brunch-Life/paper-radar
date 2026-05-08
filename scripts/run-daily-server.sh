@@ -85,9 +85,23 @@ Then exit."
   sleep 3
 done
 
-# ===== Stage 3 — rank top 10 → ranked.md =====
-echo "  Stage 3: ranking…"
-RANK_PROMPT="Read all .md files under $DEEPREADS_DIR/ . Drop any with 建议跳过 in section 1. Score remaining by stack_fit + insight_density + claim_strength + novelty + timing (each 1-5), pick top 10 by sum.
+# ===== Stage 3 — rank by quality threshold (宁缺毋滥) → ranked.md =====
+echo "  Stage 3: ranking (quality-thresholded, no fixed count)…"
+RANK_PROMPT="Read all .md files under $DEEPREADS_DIR/ . First, drop any with \"建议跳过\" in section 1.
+
+Then for each remaining paper, score it on 5 dims (each 1-5):
+  stack_fit       — Franka FR3 / ManiSkill3 / RLinf / VLA fine-tune / 真机 RL 耦合度
+  insight_density — 第 6 节有几条具体可借用？是否非平凡？
+  claim_strength  — 证据是否过硬（真机 / 多 seed / 强 baseline）？
+  novelty         — 真的新还是 A+B+C？
+  timing          — 半年内可执行 RQ？
+
+Sum each (max 25). 
+
+**只包含 sum ≥ 17 的论文**（即平均每维 ≥3.4 / 5；这是宁缺毋滥的硬门槛——不要为了凑数把质量低的塞进来）。
+
+如果通过门槛的有 0 篇，ranked.md 只写 header + 一句 \"今天没值得读的，跳过\"。
+如果通过 N 篇，按 sum 降序排列，全部纳入（无上限）。**不要强行凑 10**。
 
 Write $DIGEST_DIR/ranked.md with this exact format:
 
