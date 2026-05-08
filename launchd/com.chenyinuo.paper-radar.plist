@@ -12,7 +12,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/chenyinuo/.claude/skills/paper-radar/.mcp-venv/bin/python</string>
+    <string>/Users/chenyinuo/.claude/skills/paper-radar/.venv/bin/python</string>
     <string>/Users/chenyinuo/.claude/skills/paper-radar/scripts/serve.py</string>
   </array>
 

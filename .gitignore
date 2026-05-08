@@ -21,3 +21,13 @@ __pycache__/
 .idea/
 .vscode/
 *.swp
+
+# === Privacy: watchlist data (not for OSS) ===
+# author_boost.json is the runtime input; users derive their own.
+# The raw scrape is private — never commit.
+data/following.json
+data/relevant.json
+data/rt_authors.json
+data/tweets.json
+data/FOLLOW_LIST.md
+data/author_boost.json

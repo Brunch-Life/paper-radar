@@ -1,0 +1,25 @@
+{
+  "_comment": "Author boost table. Loaded by aggregate.py (Stage-1 scoring).",
+  "_schema": "{ <name lowercased>: { name: <Display Name>, handle: <social handle>, score: <int>, notes: [<str>] } }",
+  "_how_to_populate": "Edit by hand, OR use scripts/refresh_watchlist.sh after providing X auth token + handle list. See README.",
+  "_score_guide": "+1 = on-topic researcher; +3 = peer who you'd cite; +5 = senior researcher whose paper you'd always read",
+
+  "sergey levine": {
+    "name": "Sergey Levine",
+    "handle": "svlevine",
+    "score": 5,
+    "notes": ["BAIR / Physical Intelligence / robot RL"]
+  },
+  "chelsea finn": {
+    "name": "Chelsea Finn",
+    "handle": "chelseabfinn",
+    "score": 5,
+    "notes": ["Stanford / Physical Intelligence"]
+  },
+  "yann lecun": {
+    "name": "Yann LeCun",
+    "handle": "ylecun",
+    "score": 3,
+    "notes": ["NYU / Meta / world models / JEPA"]
+  }
+}

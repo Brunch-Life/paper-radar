@@ -293,7 +293,14 @@ def main():
                     help="Cap total candidates after sort (default 80)")
     args = ap.parse_args()
 
-    boost_table = json.load(open(DATA_DIR / 'author_boost.json'))
+    boost_path = DATA_DIR / 'author_boost.json'
+    if boost_path.exists():
+        boost_table = json.load(open(boost_path))
+    else:
+        print(f"  note: no {boost_path.name} — author boost disabled. "
+              f"Copy {boost_path.name}.example and edit to enable.",
+              file=sys.stderr)
+        boost_table = {}
 
     print(f"Fetching arXiv (last {args.days}d)...", file=sys.stderr)
     arxiv_papers = fetch_arxiv(days=args.days)
