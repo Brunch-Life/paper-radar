@@ -1,8 +1,19 @@
 # 关键词与信号源诊断报告
 
-**日期**: 2026-05-07
+**日期**: 2026-05-07（创建）/ 2026-05-08（Tier S/A/B/C 落地）
 **输入**: 535 条 relevant bios + 60 条最近 tweets + 132 author boost + 当前 `aggregate.py` TOPIC_KW
 **结论先行**: 当前 TOPIC_KW 整体方向对，但 **3 类问题** 需要修；HF Daily 确实不该当主信号源，**正确做法是把信号源重新分层**而不是换一个。
+
+---
+
+## ✅ 落地状态（2026-05-08）
+
+- **Tier S/A/B/C + DROP 已实装**于 `paper_radar/scoring.py`，`aggregate.py` 与 `annual_scan.py` 都从这里 import（不再有重复 TOPIC_KW）
+- **HF cap 50→10** 已统一 (`HF_UPVOTE_CAP=10` in `paper_radar.scoring`)
+- **效果**（用今天 RSS 反推）：候选数 53→23（噪声-57%），TOP 1 从 `Counterfactual identifiability...` 变成 `Q2RL`（真机 Franka RL，旧排名 #18 → 新 #1）；纯 LLM RL 论文没有 robot context 不再得分（旧 +2 → 新 0）；财政监管 / RTX 显卡 / "65% faster" 形容词等 false positive 全部去掉或 gated
+- **未做**：watchlist 作者自投 RSS 信号（4.1 节）、Semantic Scholar 引用图谱（4.3 节）、OpenReview burst（4.2 节）
+
+剩下的章节是当时设计文档的快照，保留作 V1 reference。
 
 ---
 

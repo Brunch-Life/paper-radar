@@ -29,84 +29,22 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import os
 # Resolve skill root: scripts/aggregate.py → skill root one level up.
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = SKILL_ROOT / "data"
-import os
 # Output dir: env override first, then ~/code/paper_reading_walkstream/digests, then in-skill fallback.
 _default_digests = Path.home() / "code" / "paper_reading_walkstream" / "digests"
 DIGESTS_DIR = Path(os.environ.get("PAPER_RADAR_DIGESTS_DIR", str(_default_digests)))
 DIGESTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ---- Topic keywords (your stack) ----------------------------------------
-# Each tuple: (regex pattern, weight, label). Higher = more on-topic for you.
-TOPIC_KW = [
-    # Tier-A: directly on your stack
-    (r'\bvision[- ]language[- ]action\b|\bVLA\b', 4, 'VLA'),
-    (r'\b(?:OpenVLA|RT-?[12X]|Octo|Helix|π0|pi-?0|pi0|RDT|GR00T)\b', 4, 'VLA-named-model'),
-    (r'\bdiffusion polic(?:y|ies)\b', 4, 'diffusion-policy'),
-    (r'\b(?:real[- ]world|real[- ]robot)\s+(?:RL|reinforcement learning|fine[- ]tun)', 4, 'real-robot-RL'),
-    (r'\bRL post[- ]training\b|\bpost[- ]training\b.*\b(?:robot|polic|VLA)', 4, 'RL-post-train'),
-    (r'\bworld model', 3, 'world-model'),
-    (r'\b(?:sim[- ]?to[- ]?real|sim2real)\b', 3, 'sim2real'),
-    (r'\b(?:ManiSkill|RLBench|RoboCasa|RoboSuite|Isaac (?:Gym|Lab|Sim)|MuJoCo)\b', 3, 'sim-platform'),
-    (r'\b(?:Franka|FR3|Panda)\b.*\b(?:RL|polic|learn)', 3, 'franka-learning'),
-    (r'\b(?:RLinf|verl|veRL)\b', 4, 'rlinf'),
-    # Tier-B: adjacent
-    (r'\b(?:imitation|behavior cloning|BC polic)', 2, 'imitation'),
-    (r'\b(?:dexterous|manipulation|grasp)', 2, 'manip'),
-    (r'\b(?:humanoid|legged|locomotion|biped|quadruped)', 2, 'humanoid'),
-    (r'\b(?:teleop|tele[- ]operation|GELLO|ALOHA)\b', 2, 'teleop'),
-    (r'\b(?:robot foundation|generalist polic|generalist robot)', 3, 'foundation-policy'),
-    (r'\b(?:offline RL|on-policy|off-policy|PPO|SAC|DPO|GRPO)\b', 1, 'rl-method'),
-    # Tier-C: signal-only (small boost, mostly to surface borderline papers)
-    (r'\b(?:LLM|large language model|VLM|multimodal)\b.*\b(?:robot|embodied|polic)', 2, 'llm-for-robot'),
-    (r'\b(?:embodied)\b', 1, 'embodied'),
-    (r'\b(?:autonomous driving|self-driving)\b', 1, 'driving'),
-]
-
-# ---- Negative keywords (should drop noise) ------------------------------
-DROP_KW = [
-    r'\b(?:bioinformatic|protein|drug discovery|molecular dynamics)\b',
-    r'\b(?:sociolog|epidemiolog|medical imaging|radiolog)\b',
-    r'\b(?:federated learning|differential privac)\b',
-    r'\b(?:adversarial attack|backdoor)\b',
-]
+# Single source of truth for topic / author / HF scoring. See
+# paper_radar/scoring.py — Tier S/A/B/C design replaces flat TOPIC_KW.
+sys.path.insert(0, str(SKILL_ROOT))
+from paper_radar.scoring import topic_score, author_match, hf_bonus, HF_UPVOTE_CAP
 
 # ARXIV_CATS: which arXiv categories to fetch
 ARXIV_CATS = ['cs.RO', 'cs.LG', 'cs.AI', 'cs.CV']
-
-
-def topic_score(title: str, abstract: str) -> tuple[int, list[str]]:
-    """Return (score, list_of_matched_labels)."""
-    text = (title + '\n' + abstract).lower()
-    score = 0
-    labels = []
-    for pat, w, label in TOPIC_KW:
-        if re.search(pat, text, flags=re.IGNORECASE):
-            score += w
-            labels.append(label)
-    for pat in DROP_KW:
-        if re.search(pat, text, flags=re.IGNORECASE):
-            score -= 5
-            labels.append('DROP-NEG')
-    return score, labels
-
-
-def author_match(authors: list[str], boost_table: dict) -> tuple[int, list[str]]:
-    """Sum author-boost scores for authors that appear in the watchlist."""
-    total = 0
-    hits = []
-    for a in authors:
-        key = a.strip().lower()
-        if key in boost_table:
-            entry = boost_table[key]
-            total += entry['score']
-            hits.append(f"{entry['name']}(@{entry['handle']},+{entry['score']})")
-            continue
-        # Last-name match fallback (less precise)
-        # skip for now to avoid false positives
-    return total, hits
 
 
 def fetch_arxiv(days: int = 1, max_per_cat: int = 200,
@@ -285,8 +223,8 @@ def merge_papers(*lists) -> list[dict]:
 def score_paper(p: dict, boost_table: dict) -> dict:
     t_score, t_labels = topic_score(p['title'], p.get('abstract', ''))
     a_score, a_hits = author_match(p['authors'], boost_table)
-    hf_bonus = min(p.get('hf_upvotes', 0), 10)  # cap at 10 to avoid HF dominating
-    total = t_score + a_score + hf_bonus
+    hf = hf_bonus(p.get('hf_upvotes', 0))  # cap from paper_radar.scoring
+    total = t_score + a_score + hf
 
     p['score'] = total
     p['score_breakdown'] = {
@@ -295,6 +233,8 @@ def score_paper(p: dict, boost_table: dict) -> dict:
         'authors': a_score,
         'author_hits': a_hits,
         'hf_upvotes': p.get('hf_upvotes', 0),
+        'hf_bonus_applied': hf,
+        'hf_cap': HF_UPVOTE_CAP,
     }
     return p
 

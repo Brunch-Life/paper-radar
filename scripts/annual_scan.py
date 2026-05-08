@@ -30,62 +30,11 @@ _default_digests = Path.home() / "code" / "paper_reading_walkstream" / "digests"
 DIGESTS_DIR = Path(os.environ.get("PAPER_RADAR_DIGESTS_DIR", str(_default_digests)))
 DIGESTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ---- Topic keywords (reuse same definitions as aggregate.py) -------------
-TOPIC_KW = [
-    (r'\bvision[- ]language[- ]action\b|\bVLA\b', 4, 'VLA'),
-    (r'\b(?:OpenVLA|RT-?[12X]|Octo|Helix|π0|pi-?0|pi0|RDT|GR00T)\b', 4, 'VLA-named-model'),
-    (r'\bdiffusion polic(?:y|ies)\b', 4, 'diffusion-policy'),
-    (r'\b(?:real[- ]world|real[- ]robot)\s+(?:RL|reinforcement learning|fine[- ]tun)', 4, 'real-robot-RL'),
-    (r'\bRL post[- ]training\b|\bpost[- ]training\b.*\b(?:robot|polic|VLA)', 4, 'RL-post-train'),
-    (r'\bworld model', 3, 'world-model'),
-    (r'\b(?:sim[- ]?to[- ]?real|sim2real)\b', 3, 'sim2real'),
-    (r'\b(?:ManiSkill|RLBench|RoboCasa|RoboSuite|Isaac (?:Gym|Lab|Sim)|MuJoCo)\b', 3, 'sim-platform'),
-    (r'\b(?:Franka|FR3|Panda)\b.*\b(?:RL|polic|learn)', 3, 'franka-learning'),
-    (r'\b(?:RLinf|verl|veRL)\b', 4, 'rlinf'),
-    (r'\b(?:imitation|behavior cloning|BC polic)', 2, 'imitation'),
-    (r'\b(?:dexterous|manipulation|grasp)', 2, 'manip'),
-    (r'\b(?:humanoid|legged|locomotion|biped|quadruped)', 2, 'humanoid'),
-    (r'\b(?:teleop|tele[- ]operation|GELLO|ALOHA)\b', 2, 'teleop'),
-    (r'\b(?:robot foundation|generalist polic|generalist robot)', 3, 'foundation-policy'),
-    (r'\b(?:offline RL|on-policy|off-policy|PPO|SAC|DPO|GRPO)\b', 1, 'rl-method'),
-    (r'\b(?:LLM|large language model|VLM|multimodal)\b.*\b(?:robot|embodied|polic)', 2, 'llm-for-robot'),
-    (r'\b(?:embodied)\b', 1, 'embodied'),
-    (r'\b(?:autonomous driving|self-driving)\b', 1, 'driving'),
-]
-
-DROP_KW = [
-    r'\b(?:bioinformatic|protein|drug discovery|molecular dynamics)\b',
-    r'\b(?:sociolog|epidemiolog|medical imaging|radiolog)\b',
-    r'\b(?:federated learning|differential privac)\b',
-    r'\b(?:adversarial attack|backdoor)\b',
-]
-
-
-def topic_score(title, abstract):
-    text = (title + '\n' + abstract).lower()
-    score = 0
-    labels = []
-    for pat, w, label in TOPIC_KW:
-        if re.search(pat, text, flags=re.IGNORECASE):
-            score += w
-            labels.append(label)
-    for pat in DROP_KW:
-        if re.search(pat, text, flags=re.IGNORECASE):
-            score -= 5
-            labels.append('DROP-NEG')
-    return score, labels
-
-
-def author_match(authors, boost_table):
-    total = 0
-    hits = []
-    for a in authors:
-        key = a.strip().lower()
-        if key in boost_table:
-            entry = boost_table[key]
-            total += entry['score']
-            hits.append(f"{entry['name']}(@{entry['handle']},+{entry['score']})")
-    return total, hits
+# Single source of truth for topic / author / HF scoring. See
+# paper_radar/scoring.py — Tier S/A/B/C design replaces flat TOPIC_KW
+# (was duplicated verbatim from aggregate.py).
+sys.path.insert(0, str(SKILL_ROOT))
+from paper_radar.scoring import topic_score, author_match, hf_bonus, HF_UPVOTE_CAP
 
 
 def fetch_hf_daily_archive(days_back=365, sleep=0.05):
@@ -147,12 +96,16 @@ def fetch_hf_daily_archive(days_back=365, sleep=0.05):
     return list(papers.values())
 
 
-def score_paper(p, boost_table, hf_cap=50, persistence_weight=2):
+def score_paper(p, boost_table, persistence_weight=2):
+    """Annual-scan score = topic (Tier S/A/B/C) + author boost +
+    HF upvotes (capped via paper_radar.scoring.HF_UPVOTE_CAP) +
+    HF persistence bonus (×N for each daily-archive day the paper appeared).
+    """
     t_score, t_labels = topic_score(p['title'], p.get('abstract', ''))
     a_score, a_hits = author_match(p['authors'], boost_table)
-    hf_bonus = min(p.get('hf_upvotes', 0), hf_cap)
+    hf = hf_bonus(p.get('hf_upvotes', 0))
     persistence = p.get('hf_seen_days', 1) * persistence_weight
-    total = t_score + a_score + hf_bonus + persistence
+    total = t_score + a_score + hf + persistence
 
     p['score'] = total
     p['score_breakdown'] = {
@@ -161,6 +114,8 @@ def score_paper(p, boost_table, hf_cap=50, persistence_weight=2):
         'authors': a_score,
         'author_hits': a_hits,
         'hf_upvotes': p.get('hf_upvotes', 0),
+        'hf_bonus_applied': hf,
+        'hf_cap': HF_UPVOTE_CAP,
         'hf_seen_days': p.get('hf_seen_days', 1),
         'persistence_score': persistence,
     }
