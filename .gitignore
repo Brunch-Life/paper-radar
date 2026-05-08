@@ -1,5 +1,6 @@
 # venv + outputs (generated)
 .venv/
+.mcp-venv/
 digests/
 data/cache/
 data/.scweet_cache/

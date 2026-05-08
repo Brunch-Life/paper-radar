@@ -55,14 +55,19 @@ def parse_ranked_md_full(text: str) -> list[dict]:
         {title, arxiv, tagline, full_md}
     full_md is the entire chunk for that paper (sections 1-6 + tail).
     """
-    # ranked.md begins with a session-level "# Paper Radar — <date>" preamble,
-    # then each paper starts with `# <Title>` (level-1).
-    # We split on level-1 headings whose title is NOT the preamble.
-    parts = re.split(r"(?m)^# (?!Paper Radar)", text)
-    if not parts:
-        return []
-    # First part contains the preamble (and maybe nothing useful for us).
-    chunks = parts[1:]
+    # ranked.md uses one of two heading formats:
+    #   A) wrapper: `# [#N score=NN] <title>` (newer daily-routine output)
+    #      followed by an inner `# <title>` heading inside the chunk.
+    #   B) flat:    `# <title>` (older manual runs).
+    # Prefer (A) when wrapper lines exist, else fall back to (B).
+    has_wrapper = bool(re.search(r"(?m)^# \[#\d+\s+score=", text))
+    if has_wrapper:
+        chunks = re.split(r"(?m)^# \[#\d+\s+score=[^\]]+\]\s*", text)[1:]
+    else:
+        parts = re.split(r"(?m)^# (?!Paper Radar)", text)
+        if not parts:
+            return []
+        chunks = parts[1:]
     papers = []
     for chunk in chunks:
         lines = chunk.splitlines()
@@ -71,8 +76,23 @@ def parse_ranked_md_full(text: str) -> list[dict]:
         # Trim trailing horizontal-rule separators that came from the concat
         body = re.sub(r"\n+---\s*$", "", body).strip()
 
-        arxiv_m = re.search(r"\*\*arxiv\*\*:\s*(\S+)", body)
-        arxiv = arxiv_m.group(1) if arxiv_m else ""
+        # Multiple arxiv-link formats: `**arxiv**: URL`, `**arXiv:** URL`,
+        # `arxiv: URL`, or just a bare arxiv URL anywhere in body.
+        arxiv = ""
+        for pat in (
+            r"\*\*arxiv:?\*\*:?\s*(\S+)",
+            r"(?m)^\s*arxiv:?\s*(\S+)",
+            r"(https?://arxiv\.org/abs/\d{4}\.\d{4,5}\S*)",
+        ):
+            m = re.search(pat, body, flags=re.IGNORECASE)
+            if m:
+                arxiv = m.group(1)
+                break
+        # If we got something that's just `2605.04649`, expand to abs URL
+        if arxiv and not arxiv.startswith("http"):
+            am = re.search(r"(\d{4}\.\d{4,5})", arxiv)
+            if am:
+                arxiv = f"https://arxiv.org/abs/{am.group(1)}"
 
         # Tagline = first paragraph under "## 1. ..."
         tagline = ""
