@@ -6,7 +6,7 @@ Used by the daily scheduled task (and manual invocations).
 
 Usage:
     python3 notify.py <digest_dir>
-    python3 notify.py 2026-05-07          # resolves to ~/code/papers/digests/2026-05-07
+    python3 notify.py 2026-05-07          # resolves to ~/code/paper_reading_walkstream/digests/2026-05-07
     python3 notify.py                     # uses today's date
 
 Exit code:
@@ -25,7 +25,7 @@ from typing import Optional
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = SKILL_ROOT / "scripts"
-DEFAULT_DIGESTS = Path.home() / "code" / "papers" / "digests"
+DEFAULT_DIGESTS = Path.home() / "code" / "paper_reading_walkstream" / "digests"
 
 
 def resolve_digest_dir(arg: Optional[str]) -> Path:

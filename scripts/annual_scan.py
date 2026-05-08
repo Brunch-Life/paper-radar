@@ -25,8 +25,8 @@ import requests
 import os
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = SKILL_ROOT / "data"
-# Output dir: env override first, then ~/code/papers/digests, then in-skill fallback.
-_default_digests = Path.home() / "code" / "papers" / "digests"
+# Output dir: env override first, then ~/code/paper_reading_walkstream/digests, then in-skill fallback.
+_default_digests = Path.home() / "code" / "paper_reading_walkstream" / "digests"
 DIGESTS_DIR = Path(os.environ.get("PAPER_RADAR_DIGESTS_DIR", str(_default_digests)))
 DIGESTS_DIR.mkdir(parents=True, exist_ok=True)
 

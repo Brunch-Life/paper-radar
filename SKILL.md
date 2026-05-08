@@ -36,11 +36,11 @@ HuggingFace Daily Papers ────────┼─→ aggregate.py ─→ c
 │   ├── rt_authors.json               ← 50 RT signal handles
 │   ├── tweets.json                   ← 60 recent tweets (signal)
 │   └── FOLLOW_LIST.md                ← human-readable watchlist
-├── digests/                          ← symlinks to ~/code/papers/digests/
-│   ├── YYYY-MM-DD          → ~/code/papers/digests/YYYY-MM-DD
-│   └── annual-YYYY-MM-DD   → ~/code/papers/digests/annual-YYYY-MM-DD
+├── digests/                          ← symlinks to ~/code/paper_reading_walkstream/digests/
+│   ├── YYYY-MM-DD          → ~/code/paper_reading_walkstream/digests/YYYY-MM-DD
+│   └── annual-YYYY-MM-DD   → ~/code/paper_reading_walkstream/digests/annual-YYYY-MM-DD
 │
-│   Real outputs live at ~/code/papers/digests/<tag>/:
+│   Real outputs live at ~/code/paper_reading_walkstream/digests/<tag>/:
 │     ├── candidates.json
 │     ├── candidates.md
 │     ├── deepreads/<arxiv_id>.md     ← Stage 2 outputs
