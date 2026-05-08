@@ -415,5 +415,54 @@ def get_candidates(date: Optional[str] = None, top_n: int = 30) -> dict:
     }
 
 
+# ---- Cowork bridge compat shim ---------------------------------------
+# The Cowork (Claude Desktop) bridge forwards tool names with the
+# `mcp__<server>__<tool>` prefix that Claude Code's tool registry uses,
+# but does NOT strip the prefix before sending to the stdio MCP server.
+# Net effect: the server receives `mcp__paper-radar__list_dates` and
+# replies `Unknown tool` (only `list_dates` is registered).
+#
+# Until the bridge is fixed upstream, register every public tool a
+# second time under its prefixed name as a thin pass-through.
+# Repro details: see commit message + chat transcript 2026-05-08.
+_PREFIX = "mcp__paper-radar__"
+
+
+@mcp.tool(name=_PREFIX + "list_dates")
+def _aliased_list_dates(limit: int = 14) -> dict:
+    """[Cowork-bridge alias] Same as list_dates."""
+    return list_dates(limit)
+
+
+@mcp.tool(name=_PREFIX + "list_papers")
+def _aliased_list_papers(date: Optional[str] = None) -> dict:
+    """[Cowork-bridge alias] Same as list_papers."""
+    return list_papers(date)
+
+
+@mcp.tool(name=_PREFIX + "get_paper")
+def _aliased_get_paper(arxiv_id: str, date: Optional[str] = None) -> dict:
+    """[Cowork-bridge alias] Same as get_paper."""
+    return get_paper(arxiv_id, date)
+
+
+@mcp.tool(name=_PREFIX + "search_papers")
+def _aliased_search_papers(query: str, limit: int = 20) -> dict:
+    """[Cowork-bridge alias] Same as search_papers."""
+    return search_papers(query, limit)
+
+
+@mcp.tool(name=_PREFIX + "get_top5_annual")
+def _aliased_get_top5_annual(year_tag: Optional[str] = None) -> dict:
+    """[Cowork-bridge alias] Same as get_top5_annual."""
+    return get_top5_annual(year_tag)
+
+
+@mcp.tool(name=_PREFIX + "get_candidates")
+def _aliased_get_candidates(date: Optional[str] = None, top_n: int = 30) -> dict:
+    """[Cowork-bridge alias] Same as get_candidates."""
+    return get_candidates(date, top_n)
+
+
 if __name__ == "__main__":
     mcp.run()
