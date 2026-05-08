@@ -177,6 +177,8 @@ def build_summary_card(date_str: str, papers: list[dict], digest_dir: str) -> di
             if p["tagline"]:
                 line += f"\n　　_{p['tagline']}_"
             toc_lines.append(line)
+        viewer_path = f"{digest_dir}/viewer.html"
+        viewer_exists = Path(viewer_path).exists()
         elements = [
             {
                 "tag": "markdown",
@@ -191,8 +193,10 @@ def build_summary_card(date_str: str, papers: list[dict], digest_dir: str) -> di
             {
                 "tag": "markdown",
                 "content": (
-                    f"完整文件：`{digest_dir}/ranked.md`\n"
-                    f"候选清单：`{digest_dir}/candidates.md`"
+                    (f"🖥️ **浏览器视图** (Mac 上点开): `open {viewer_path}`\n"
+                     if viewer_exists else "")
+                    + f"📄 完整 Markdown：`{digest_dir}/ranked.md`\n"
+                    f"📋 候选清单：`{digest_dir}/candidates.md`"
                 ),
             },
         ]

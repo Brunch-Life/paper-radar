@@ -54,6 +54,16 @@ def main():
         print(f"[notify] digest dir not found: {digest_dir}", file=sys.stderr)
         sys.exit(2)
 
+    # Generate viewer.html (a single-file browser UI; opens in Safari or
+    # drops into Claude Desktop as an Artifact). Failures are non-fatal —
+    # we still push to Feishu/email even if the viewer build hiccups.
+    viewer_rc = run(SCRIPTS_DIR / "build_viewer.py", digest_dir)
+    if viewer_rc == 0:
+        print(f"[notify] viewer.html ready: file://{digest_dir}/viewer.html")
+    else:
+        print(f"[notify] viewer build failed (rc={viewer_rc}), continuing…",
+              file=sys.stderr)
+
     feishu_rc = run(SCRIPTS_DIR / "push_feishu.py", digest_dir)
     if feishu_rc == 0:
         print("[notify] Feishu push OK; skipping email.")
