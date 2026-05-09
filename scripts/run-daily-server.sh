@@ -77,7 +77,7 @@ After producing the 6-section markdown, Write the entire output (just the markdo
 
 Then exit."
 
-  echo "$PROMPT" | timeout 600 claude --print \
+  echo "$PROMPT" | timeout 600 claude --print --model sonnet \
     --allowedTools "Read Write WebFetch WebSearch Bash" \
     --max-budget-usd "$BUDGET_PER_PAPER" 2>&1 | tail -3
 
@@ -122,7 +122,7 @@ The wrapper format \`# [#N score=NN] <title>\` is required — MCP server parses
 
 After writing, just say done."
 
-echo "$RANK_PROMPT" | timeout 600 claude --print \
+echo "$RANK_PROMPT" | timeout 600 claude --print --model sonnet \
   --allowedTools "Read Write Bash" \
   --max-budget-usd 2.00 2>&1 | tail -3
 
