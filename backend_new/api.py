@@ -30,7 +30,7 @@ from fastapi import Body, FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from paper_radar import digests, search, signals
+from paper_radar import digests, preferences, search, signals
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / "frontend"
@@ -136,10 +136,18 @@ def api_dwell(payload: dict = Body(...)):
 @app.post("/api/interest")
 def api_interest(payload: dict = Body(...)):
     pid = _pid(payload)
-    paper_tags, _ = search.tag_index()
     explicit = payload.get("tags") if isinstance(payload.get("tags"), list) else []
-    return signals.set_interest(pid, payload.get("score"),
-                                list(paper_tags.get(pid, [])) + explicit)
+    return signals.set_interest(pid, payload.get("score"), explicit)
+
+
+@app.get("/api/interest/options")
+def api_interest_options(pid: str = ""):
+    pid = pid.strip()
+    meta = next((paper for paper in search.all_papers() if paper.get("pid") == pid), None)
+    if not meta:
+        return JSONResponse({"error": "论文未找到"}, status_code=404)
+    detail = digests.get_paper(pid)
+    return preferences.interest_options(meta, detail.get("full_md", ""))
 
 
 # ---- annotations (highlighter + notes) ---------------------------------

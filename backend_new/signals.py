@@ -24,6 +24,8 @@ import json
 import time
 from typing import Optional
 
+from paper_radar.preferences import _matches as _preference_matches
+
 try:
     import redis
 except Exception:  # pragma: no cover
@@ -242,13 +244,14 @@ def compute_affinity(paper_tags: dict, paper_authors: dict) -> dict:
         age_days = max(0.0, (now - float(item.get("ts", now))) / 86400)
         decay = 0.5 ** (age_days / INTEREST_HALF_LIFE_DAYS)
         weight = (int(item["score"]) - 3) * W_INTEREST * decay
-        credit(pid, weight)
-        # Explicit reason terms (e.g. "flow matching") are first-class
-        # preferences even when the coarse candidate tag is broader.
-        inherited = set(paper_tags.get(pid, []))
-        for term in item.get("tags", []):
-            if term not in inherited:
+        chosen = item.get("tags", [])
+        if chosen:
+            # Structured choices are precise: only learn what the user picked.
+            for term in chosen:
                 tag_w[term] = tag_w.get(term, 0.0) + weight
+        else:
+            # A bare rating retains the v1 behavior for backward compatibility.
+            credit(pid, weight)
     for pid in sig["saved"]:
         credit(pid, W_SAVE)
     for pid in set(list(clicks) + list(dwell)):        # implicit, skip downvoted
@@ -279,10 +282,10 @@ def personalize(papers: list, paper_tags: dict, paper_authors: dict,
             if t in tw and abs(tw[t]) > 1e-3:
                 s += tw[t]
                 contribs.append((t, tw[t]))
-        searchable = f"{p.get('title', '')} {p.get('tagline', '')}".lower().replace('-', ' ')
+        searchable = (f"{p.get('title', '')} {p.get('tagline', '')} "
+                      f"{' '.join(tags)}").lower().replace('-', ' ')
         for term, weight in tw.items():
-            normalized = term.lower().replace('-', ' ')
-            if term not in tags and len(normalized) >= 4 and normalized in searchable:
+            if term not in tags and _preference_matches(term, searchable, authors):
                 s += weight
                 contribs.append((term, weight))
         for a in authors:

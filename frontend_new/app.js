@@ -269,6 +269,11 @@ const api = {
   vote(pid, v) { return this._post('/api/vote', { pid, vote: v }).then((r) => r.json()); },
   save(pid, s) { return this._post('/api/save', { pid, saved: s }).then((r) => r.json()); },
   interest(pid, score, tags = []) { return this._post('/api/interest', { pid, score, tags }).then((r) => r.json()); },
+  async interestOptions(pid) {
+    const r = await fetch(`/api/interest/options?pid=${encodeURIComponent(pid)}`);
+    if (!r.ok) throw new Error(`interest options ${r.status}`);
+    return r.json();
+  },
   del(pid) { return this._post('/api/deepread/delete', { pid }); },
   click(pid) { return this._post('/api/click', { pid }).catch(() => {}); },
   dwell(pid, ms) { return this._post('/api/dwell', { pid, ms }).catch(() => {}); },
@@ -405,9 +410,86 @@ function syncActionUI(pid) {
     $('#interest-clear').hidden = !interest;
     const terms = state.signals.interests[pid]?.tags || [];
     $('#interest-status').textContent = interest
-      ? `已评分 ${interest}/5${terms.length ? ` · 关键词：${terms.join('、')}` : ''}`
+      ? `已评分 ${interest}/5${terms.length ? ` · 关注：${terms.map(prettyInterestTerm).join('、')}` : ''}`
       : '尚未评分 · 会影响之后的搜推与日更候选';
   }
+}
+
+const interestPickerState = { pid: '', score: 0, selected: new Set(), labels: new Map(), lastFocus: null };
+
+function prettyInterestTerm(term) {
+  const raw = String(term || '').split(':').slice(1).join(':') || String(term || '');
+  return interestPickerState.labels.get(term) || raw.replace(/-/g, ' ');
+}
+
+function renderInterestOptions(groups) {
+  const root = $('#interest-picker-groups');
+  const html = (groups || []).map((group) => {
+    if (!group.options?.length) return '';
+    return `<section class="interest-option-group"><h3>${escapeHtml(group.label)}</h3><div class="interest-chips">${group.options.map((option) => {
+      interestPickerState.labels.set(option.value, option.label);
+      const on = interestPickerState.selected.has(option.value);
+      return `<button type="button" class="interest-chip${on ? ' on' : ''}" data-interest-term="${escapeHtml(option.value)}" aria-pressed="${on}">${escapeHtml(option.label)}</button>`;
+    }).join('')}</div></section>`;
+  }).join('');
+  root.innerHTML = html || '<div class="interest-loading">没有自动选项，可在下方添加自定义偏好。</div>';
+}
+
+async function openInterestPicker(pid, score) {
+  const previous = state.signals.interests[pid] || {};
+  const previousTags = previous.tags || [];
+  interestPickerState.pid = pid;
+  interestPickerState.score = score;
+  interestPickerState.selected = new Set(previousTags.filter((x) => String(x).includes(':') && !String(x).startsWith('custom:')));
+  interestPickerState.labels = new Map();
+  interestPickerState.lastFocus = document.activeElement;
+  $('#interest-custom').value = previousTags.filter((x) => !String(x).includes(':') || String(x).startsWith('custom:'))
+    .map((x) => String(x).startsWith('custom:') ? String(x).slice(7) : String(x)).join(', ');
+  $('#interest-picker-groups').innerHTML = '<div class="interest-loading">正在提取可选项…</div>';
+  $('#interest-picker-title').textContent = `兴趣 ${score}/5 · 你关注哪些部分？`;
+  $('#interest-picker').hidden = false;
+  $('#interest-picker-close').focus();
+  try {
+    const res = await api.interestOptions(pid);
+    if (interestPickerState.pid !== pid) return;
+    renderInterestOptions(res.groups || []);
+  } catch {
+    if (interestPickerState.pid === pid) renderInterestOptions([]);
+  }
+}
+
+function closeInterestPicker() {
+  $('#interest-picker').hidden = true;
+  const focus = interestPickerState.lastFocus;
+  interestPickerState.pid = '';
+  if (focus && document.contains(focus)) focus.focus();
+}
+
+function commitInterest(pid, score, terms) {
+  const previous = state.signals.interests[pid] || null;
+  if (score) state.signals.interests[pid] = { score, tags: terms };
+  else delete state.signals.interests[pid];
+  syncActionUI(pid);
+  api.interest(pid, score || null, terms).then((r) => {
+    if (!r || !r.ok) throw 0;
+    toast(score ? `已记录兴趣分 ${score}/5，将用于后续搜推` : '已清除兴趣分');
+  }).catch(() => {
+    if (previous) state.signals.interests[pid] = previous;
+    else delete state.signals.interests[pid];
+    syncActionUI(pid);
+    toast('兴趣评分失败，已回滚');
+  });
+}
+
+function saveInterestPicker() {
+  const pid = interestPickerState.pid;
+  if (!pid) return;
+  const custom = $('#interest-custom').value.split(/[,，]/).map((x) => x.trim()).filter(Boolean).slice(0, 20)
+    .map((x) => `custom:${x}`);
+  const terms = [...interestPickerState.selected, ...custom];
+  const score = interestPickerState.score;
+  closeInterestPicker();
+  commitInterest(pid, score, terms);
 }
 
 function rateInterest(pid, presetScore = null) {
@@ -422,26 +504,8 @@ function rateInterest(pid, presetScore = null) {
   if (!Number.isInteger(score) || score < 0 || score > 5) {
     toast('请输入 0–5 的整数'); return;
   }
-  let terms = [];
-  if (score) {
-    const oldTerms = previous?.tags || state.tagsByPid[pid] || [];
-    const why = prompt('可选：这篇吸引/劝退你的具体关键词（逗号分隔，例如 flow matching、真机 RL）：', oldTerms.join(', '));
-    terms = why === null ? oldTerms
-      : why.split(/[,，]/).map((x) => x.trim()).filter(Boolean).slice(0, 20);
-    state.signals.interests[pid] = { score, tags: terms };
-  } else {
-    delete state.signals.interests[pid];
-  }
-  syncActionUI(pid);
-  api.interest(pid, score || null, terms).then((r) => {
-    if (!r || !r.ok) throw 0;
-    toast(score ? `已记录兴趣分 ${score}/5，将用于后续推荐` : '已清除兴趣分');
-  }).catch(() => {
-    if (previous) state.signals.interests[pid] = previous;
-    else delete state.signals.interests[pid];
-    syncActionUI(pid);
-    toast('兴趣评分失败，已回滚');
-  });
+  if (!score) { commitInterest(pid, 0, []); return; }
+  openInterestPicker(pid, score);
 }
 
 // ── 批注引擎：荧光笔高亮 + 边注（按选中文字锚定，跨会话持久化）──────
@@ -1527,6 +1591,23 @@ function boot() {
     }
     const act = e.target.closest('.paper-actions .act');
     if (act) handleAction(act);
+  });
+
+  // --- structured interest picker ---
+  $('#interest-picker-groups').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-interest-term]');
+    if (!chip) return;
+    const term = chip.dataset.interestTerm;
+    if (interestPickerState.selected.has(term)) interestPickerState.selected.delete(term);
+    else interestPickerState.selected.add(term);
+    const on = interestPickerState.selected.has(term);
+    chip.classList.toggle('on', on); chip.setAttribute('aria-pressed', String(on));
+  });
+  $('#interest-picker-close').addEventListener('click', closeInterestPicker);
+  $('#interest-picker-cancel').addEventListener('click', closeInterestPicker);
+  $('#interest-picker-save').addEventListener('click', saveInterestPicker);
+  $('#interest-picker').addEventListener('pointerdown', (e) => {
+    if (e.target === $('#interest-picker')) closeInterestPicker();
   });
 
   // --- chat drawer ---

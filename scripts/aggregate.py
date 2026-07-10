@@ -225,7 +225,7 @@ def score_paper(p: dict, boost_table: dict) -> dict:
     t_score, t_labels = topic_score(p['title'], p.get('abstract', ''))
     a_score, a_hits = author_match(p['authors'], boost_table)
     hf = hf_bonus(p.get('hf_upvotes', 0))  # cap from paper_radar.scoring
-    pref, pref_hits = preference_bonus(p['title'], p.get('abstract', ''))
+    pref, pref_hits = preference_bonus(p['title'], p.get('abstract', ''), p.get('authors', []))
     total = round(t_score + a_score + hf + pref, 2)
 
     p['score'] = total

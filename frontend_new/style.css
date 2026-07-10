@@ -326,6 +326,14 @@ html.dark .interest-panel{background:rgba(190,135,0,.10)}
   .interest-scale{width:100%;display:grid;grid-template-columns:repeat(5,1fr)}
   .interest-scale button{min-width:0;padding:8px 3px}.interest-scale .interest-clear{grid-column:1/-1}
 }
+
+/* structured preference picker */
+.interest-modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;background:rgba(15,13,10,.62);backdrop-filter:blur(3px)}
+.interest-modal[hidden]{display:none}.interest-modal-card{width:min(720px,100%);max-height:min(82vh,760px);overflow:auto;background:var(--paper);border:1px solid var(--rule-dark);box-shadow:0 22px 70px rgba(0,0,0,.38);padding:22px}
+.interest-modal-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;border-bottom:2px solid var(--ink);padding-bottom:13px}.interest-modal-kicker{color:var(--red);font:700 10px/1 var(--sans);letter-spacing:.14em}.interest-modal-card h2{margin:5px 0 0;font-size:23px}.interest-modal-card>header button{border:0;background:none;color:var(--ink);font-size:25px;cursor:pointer}.interest-modal-help{margin:14px 0;color:var(--muted);font:12.5px/1.6 var(--sans)}
+.interest-picker-groups{display:grid;gap:15px}.interest-option-group h3{margin:0 0 8px;font:700 12px/1.3 var(--sans);color:var(--ink-soft)}.interest-chips{display:flex;flex-wrap:wrap;gap:7px}.interest-chip{padding:7px 11px;border:1px solid var(--rule-dark);border-radius:999px;background:var(--paper);color:var(--ink-soft);cursor:pointer;font:12px/1.2 var(--sans)}.interest-chip:hover,.interest-chip.on{border-color:#9b6a00;background:rgba(190,135,0,.16);color:#795100}.interest-loading{padding:18px 0;color:var(--muted);font:12px var(--sans)}
+.interest-custom-label{display:block;margin:18px 0 7px;font:700 12px var(--sans)}#interest-custom{width:100%;padding:10px 12px;border:1px solid var(--rule-dark);background:var(--paper);color:var(--ink);font:13px var(--sans)}.interest-modal-card>footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid var(--rule)}.interest-modal-card>footer button{padding:9px 15px;border:1px solid var(--ink);cursor:pointer;font:600 12px var(--sans)}.interest-cancel{background:transparent;color:var(--ink)}.interest-save{background:var(--ink);color:var(--paper)}
+html.dark .interest-modal-card{background:var(--paper)}
 .act.del-btn:hover{filter:none}
 
 /* ── 13. skeleton / empty / error ───────────────── */
