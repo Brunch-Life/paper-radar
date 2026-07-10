@@ -42,12 +42,23 @@ function renderPaper(index) {
   $('#left-pane').classList.toggle('winner', winnerModel === leftModel);
   $('#right-pane').classList.toggle('winner', winnerModel === rightModel);
   $('#verdict').innerHTML = `<b>盲评：${winnerModel === 'tie' ? '平局' : modelLabel(winnerModel)+' 胜'}</b> · 置信度 ${esc(p.judge.confidence)}<br>${esc(p.judge.reason)}`;
+  const figure = $('#paper-figure');
+  const figureImg = $('#paper-figure-img');
+  if (p.figure_url) {
+    figureImg.src = p.figure_url;
+    figureImg.alt = `${p.title} 论文主图`;
+    figure.hidden = false;
+  } else {
+    figure.hidden = true;
+    figureImg.removeAttribute('src');
+    figureImg.alt = '';
+  }
   history.replaceState(null, '', `#${p.aid}`);
   window.scrollTo({top: 0, behavior: 'instant'});
 }
 
 async function boot() {
-  const response = await fetch('data.json?v=1');
+  const response = await fetch('data.json?v=2');
   if (!response.ok) throw new Error(`data ${response.status}`);
   data = await response.json();
   renderSummary();

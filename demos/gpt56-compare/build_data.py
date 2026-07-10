@@ -29,9 +29,16 @@ def main() -> None:
                 if candidate:
                     title = candidate
                     break
+        figure_url = ""
+        for markdown in (opus, gpt):
+            image = re.search(r"!\[[^]]*\]\((https://arxiv\.org/html/[^)]+)\)", markdown)
+            if image:
+                figure_url = image.group(1)
+                break
         papers.append({
             "aid": aid,
             "title": title,
+            "figure_url": figure_url,
             "mapping": result["mapping"],
             "judge": result["judge"],
             "outputs": {"claude-opus-4-8": opus, "gpt-5.6-sol": gpt},
