@@ -20,7 +20,7 @@
       rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 <!-- defer: don't block first paint; app.js boots without waiting for these -->
 <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
@@ -122,6 +122,7 @@
         <button class="act vote-up" data-act="up" type="button" aria-pressed="false" title="赞 / 多推这类" aria-label="赞，多推这类">👍</button>
         <button class="act vote-down" data-act="down" type="button" aria-pressed="false" title="踩 / 少推这类" aria-label="踩，少推这类">👎</button>
         <button class="act save-btn" data-act="save" type="button" aria-pressed="false" title="收藏" aria-label="收藏">🔖</button>
+        <button class="act interest-btn" data-act="interest" type="button" title="兴趣分 1–5" aria-label="兴趣分 未评分">☆</button>
         <button class="act del-btn" data-act="del" type="button" title="删除（删掉精读文件和数据，重新生成即可）" aria-label="删除">🗑</button>
       </div>
       <a class="arxiv-link" id="reader-arxiv" target="_blank" rel="noopener" hidden>arXiv ↗</a>
@@ -130,6 +131,20 @@
   </header>
   <div class="article-wrap">
     <div class="reader-tags" id="reader-tags"></div>
+    <section class="interest-panel" id="interest-panel" data-pid="" aria-label="论文兴趣评分">
+      <div class="interest-copy">
+        <b>这篇你有多感兴趣？</b>
+        <span id="interest-status">尚未评分 · 会影响之后的搜推与日更候选</span>
+      </div>
+      <div class="interest-scale" role="group" aria-label="兴趣分 1 到 5">
+        <button type="button" data-interest-score="1" aria-pressed="false"><b>1</b><span>不感兴趣</span></button>
+        <button type="button" data-interest-score="2" aria-pressed="false"><b>2</b><span>较弱</span></button>
+        <button type="button" data-interest-score="3" aria-pressed="false"><b>3</b><span>一般</span></button>
+        <button type="button" data-interest-score="4" aria-pressed="false"><b>4</b><span>感兴趣</span></button>
+        <button type="button" data-interest-score="5" aria-pressed="false"><b>5</b><span>多推这类</span></button>
+        <button class="interest-clear" id="interest-clear" type="button" data-interest-score="0" hidden>清除</button>
+      </div>
+    </section>
     <article class="article-body" id="article"></article>
   </div>
 </div>
@@ -166,6 +181,6 @@
   </footer>
 </aside>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

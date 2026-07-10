@@ -303,6 +303,29 @@ button:disabled{cursor:not-allowed}
 .act.on{opacity:1;filter:none;background:color-mix(in srgb,var(--red) 10%,transparent)}
 .act.interest-btn{min-width:30px;font-family:var(--sans);font-size:12px;color:#9b6a00}
 .act.interest-btn.on{background:rgba(190,135,0,.12);color:#8a5b00}
+
+/* explicit reader interest score — visible feedback, not hidden in icon row */
+.interest-panel{
+  display:flex;align-items:center;justify-content:space-between;gap:22px;
+  margin:8px 0 28px;padding:15px 18px;border:1px solid var(--rule-dark);
+  border-left:4px solid #ad7800;background:rgba(190,135,0,.055);
+}
+.interest-copy{display:flex;flex-direction:column;gap:4px;min-width:190px}
+.interest-copy b{font-size:14px}.interest-copy span{color:var(--muted);font:11.5px/1.45 var(--sans)}
+.interest-scale{display:flex;align-items:stretch;gap:4px}
+.interest-scale button{
+  min-width:58px;padding:7px 8px;border:1px solid var(--rule-dark);background:var(--paper);
+  color:var(--ink-soft);cursor:pointer;font-family:var(--sans);border-radius:2px;
+}
+.interest-scale button b{display:block;font-size:14px}.interest-scale button span{display:block;margin-top:2px;font-size:9px;white-space:nowrap}
+.interest-scale button:hover,.interest-scale button.on{border-color:#9b6a00;background:rgba(190,135,0,.16);color:#795100}
+.interest-scale .interest-clear{min-width:auto;padding:7px;color:var(--muted)}
+html.dark .interest-panel{background:rgba(190,135,0,.10)}
+@media(max-width:720px){
+  .interest-panel{align-items:flex-start;flex-direction:column;gap:12px}
+  .interest-scale{width:100%;display:grid;grid-template-columns:repeat(5,1fr)}
+  .interest-scale button{min-width:0;padding:8px 3px}.interest-scale .interest-clear{grid-column:1/-1}
+}
 .act.del-btn:hover{filter:none}
 
 /* ── 13. skeleton / empty / error ───────────────── */

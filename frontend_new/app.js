@@ -373,6 +373,8 @@ function syncActionUI(pid) {
       b.classList.remove('on');
       if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', 'false');
     });
+    const emptyPanel = $('#interest-panel');
+    if (emptyPanel) emptyPanel.dataset.pid = '';
     return;
   }
   const v = state.signals.votes[pid];
@@ -391,6 +393,54 @@ function syncActionUI(pid) {
       ib.textContent = interest ? `★${interest}` : '☆';
       ib.setAttribute('aria-label', `兴趣分 ${interest || '未评分'}`);
     }
+  });
+  const panel = $('#interest-panel');
+  if (panel && panel.dataset.pid === pid) {
+    panel.querySelectorAll('[data-interest-score]').forEach((button) => {
+      const score = Number(button.dataset.interestScore);
+      const on = score > 0 && score === interest;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+    $('#interest-clear').hidden = !interest;
+    const terms = state.signals.interests[pid]?.tags || [];
+    $('#interest-status').textContent = interest
+      ? `已评分 ${interest}/5${terms.length ? ` · 关键词：${terms.join('、')}` : ''}`
+      : '尚未评分 · 会影响之后的搜推与日更候选';
+  }
+}
+
+function rateInterest(pid, presetScore = null) {
+  if (!pid) return;
+  const previous = state.signals.interests[pid] || null;
+  let score = presetScore;
+  if (score === null) {
+    const raw = prompt('给这篇论文打兴趣分（1=完全不感兴趣，3=中性，5=非常想多看；输入 0 清除）：', previous?.score || '');
+    if (raw === null) return;
+    score = Number(raw.trim());
+  }
+  if (!Number.isInteger(score) || score < 0 || score > 5) {
+    toast('请输入 0–5 的整数'); return;
+  }
+  let terms = [];
+  if (score) {
+    const oldTerms = previous?.tags || state.tagsByPid[pid] || [];
+    const why = prompt('可选：这篇吸引/劝退你的具体关键词（逗号分隔，例如 flow matching、真机 RL）：', oldTerms.join(', '));
+    terms = why === null ? oldTerms
+      : why.split(/[,，]/).map((x) => x.trim()).filter(Boolean).slice(0, 20);
+    state.signals.interests[pid] = { score, tags: terms };
+  } else {
+    delete state.signals.interests[pid];
+  }
+  syncActionUI(pid);
+  api.interest(pid, score || null, terms).then((r) => {
+    if (!r || !r.ok) throw 0;
+    toast(score ? `已记录兴趣分 ${score}/5，将用于后续推荐` : '已清除兴趣分');
+  }).catch(() => {
+    if (previous) state.signals.interests[pid] = previous;
+    else delete state.signals.interests[pid];
+    syncActionUI(pid);
+    toast('兴趣评分失败，已回滚');
   });
 }
 
@@ -553,32 +603,7 @@ function handleAction(btn) {
     return;
   }
   if (btn.dataset.act === 'interest') {
-    const prev = state.signals.interests[pid]?.score || 0;
-    const raw = prompt('给这篇论文打兴趣分（1=完全不感兴趣，3=中性，5=非常想多看；输入 0 清除）：', prev || '');
-    if (raw === null) return;
-    const score = Number(raw.trim());
-    if (!Number.isInteger(score) || score < 0 || score > 5) {
-      toast('请输入 0–5 的整数'); return;
-    }
-    let terms = [];
-    if (score) {
-      const oldTerms = state.signals.interests[pid]?.tags || state.tagsByPid[pid] || [];
-      const why = prompt('可选：这篇吸引/劝退你的具体关键词（逗号分隔，例如 flow matching、真机 RL）：', oldTerms.join(', '));
-      if (why !== null) terms = why.split(/[,，]/).map((x) => x.trim()).filter(Boolean).slice(0, 20);
-      else terms = oldTerms;
-    }
-    if (score) state.signals.interests[pid] = { score, tags: terms };
-    else delete state.signals.interests[pid];
-    syncActionUI(pid);
-    api.interest(pid, score || null, terms).then((r) => {
-      if (!r || !r.ok) throw 0;
-      toast(score ? `已记录兴趣分 ${score}/5，将用于后续推荐` : '已清除兴趣分');
-    }).catch(() => {
-      if (prev) state.signals.interests[pid] = { score: prev };
-      else delete state.signals.interests[pid];
-      syncActionUI(pid);
-      toast('兴趣评分失败，已回滚');
-    });
+    rateInterest(pid);
     return;
   }
   if (btn.dataset.act === 'save') {
@@ -956,6 +981,7 @@ async function openPaper(pid, date, nav) {
   $('#reader-crumb').textContent = `加载 ${pid}…`;
   $('#reader-arxiv').hidden = true;
   $('#reader-actions').dataset.pid = pid;
+  $('#interest-panel').dataset.pid = pid;
   syncActionUI(pid);
   renderReaderTags(pid);
   $('#article').innerHTML = readerLoadingHTML(pid);
@@ -1495,6 +1521,10 @@ function boot() {
   $('#reader').addEventListener('click', (e) => {
     const tag = e.target.closest('.tag[data-tag]');
     if (tag) { searchTag(tag.dataset.tag); return; }
+    const interestScore = e.target.closest('[data-interest-score]');
+    if (interestScore) {
+      rateInterest(state.openPid, Number(interestScore.dataset.interestScore)); return;
+    }
     const act = e.target.closest('.paper-actions .act');
     if (act) handleAction(act);
   });
