@@ -230,6 +230,7 @@ const api = {
   // parse JSON: redis 掉线时后端回 200 + {ok:false}，HTTP 层 r.ok 看不见
   vote(pid, v) { return this._post('/api/vote', { pid, vote: v }).then((r) => r.json()); },
   save(pid, s) { return this._post('/api/save', { pid, saved: s }).then((r) => r.json()); },
+  interest(pid, score, tags = []) { return this._post('/api/interest', { pid, score, tags }).then((r) => r.json()); },
   del(pid) { return this._post('/api/deepread/delete', { pid }); },
   click(pid) { return this._post('/api/click', { pid }).catch(() => {}); },
   dwell(pid, ms) { return this._post('/api/dwell', { pid, ms }).catch(() => {}); },
@@ -245,7 +246,7 @@ const api = {
 // ── 3. STATE ─────────────────────────────────────────────────────────
 const state = {
   dates: [], annual: [], digestsDir: '',
-  signals: { votes: {}, savedSet: new Set(), hiddenSet: new Set() },   // keyed by pid
+  signals: { votes: {}, savedSet: new Set(), hiddenSet: new Set(), interests: {} },
   tagsByPid: {},                      // pid → [tags]  (for reader rubric row)
   openPid: null, openAt: 0, openSeq: 0,
   chatPid: null,                      // pid the chat drawer is wired to
@@ -315,11 +316,13 @@ function applyStoredTheme() {
 function actsHTML(pid) {
   const v = state.signals.votes[pid];
   const saved = state.signals.savedSet.has(pid);
+  const interest = state.signals.interests[pid]?.score || 0;
   return `
     <div class="acts paper-actions" data-pid="${escapeHtml(pid ?? '')}">
       <button class="act vote-up${v === 'up' ? ' on' : ''}" data-act="up" type="button" aria-pressed="${v === 'up'}" title="赞 / 多推这类" aria-label="赞，多推这类">👍</button>
       <button class="act vote-down${v === 'down' ? ' on' : ''}" data-act="down" type="button" aria-pressed="${v === 'down'}" title="踩 / 少推这类" aria-label="踩，少推这类">👎</button>
       <button class="act save-btn${saved ? ' on' : ''}" data-act="save" type="button" aria-pressed="${saved}" title="收藏" aria-label="收藏">🔖</button>
+      <button class="act interest-btn${interest ? ' on' : ''}" data-act="interest" type="button" title="兴趣分 1–5；用于学习你的研究偏好" aria-label="兴趣分 ${interest || '未评分'}">${interest ? `★${interest}` : '☆'}</button>
       <button class="act del-btn" data-act="del" type="button" title="删除（删掉精读文件和数据，重新生成即可）" aria-label="删除">🗑</button>
     </div>`;
 }
@@ -336,6 +339,7 @@ function syncActionUI(pid) {
   }
   const v = state.signals.votes[pid];
   const saved = state.signals.savedSet.has(pid);
+  const interest = state.signals.interests[pid]?.score || 0;
   document.querySelectorAll(`.paper-actions[data-pid="${CSS.escape(pid)}"]`).forEach((wrap) => {
     const up = wrap.querySelector('.vote-up');
     const down = wrap.querySelector('.vote-down');
@@ -343,6 +347,12 @@ function syncActionUI(pid) {
     if (down) { down.classList.toggle('on', v === 'down'); down.setAttribute('aria-pressed', v === 'down'); }
     const sb = wrap.querySelector('.save-btn');
     if (sb) { sb.classList.toggle('on', saved); sb.setAttribute('aria-pressed', saved); }
+    const ib = wrap.querySelector('.interest-btn');
+    if (ib) {
+      ib.classList.toggle('on', !!interest);
+      ib.textContent = interest ? `★${interest}` : '☆';
+      ib.setAttribute('aria-label', `兴趣分 ${interest || '未评分'}`);
+    }
   });
 }
 
@@ -502,6 +512,35 @@ function handleAction(btn) {
     document.querySelectorAll(`.entry[data-pid="${CSS.escape(pid)}"]`).forEach((c) => c.remove());
     if (state.openPid === pid) requestCloseReader();
     api.del(pid).catch(() => {});
+    return;
+  }
+  if (btn.dataset.act === 'interest') {
+    const prev = state.signals.interests[pid]?.score || 0;
+    const raw = prompt('给这篇论文打兴趣分（1=完全不感兴趣，3=中性，5=非常想多看；输入 0 清除）：', prev || '');
+    if (raw === null) return;
+    const score = Number(raw.trim());
+    if (!Number.isInteger(score) || score < 0 || score > 5) {
+      toast('请输入 0–5 的整数'); return;
+    }
+    let terms = [];
+    if (score) {
+      const oldTerms = state.signals.interests[pid]?.tags || state.tagsByPid[pid] || [];
+      const why = prompt('可选：这篇吸引/劝退你的具体关键词（逗号分隔，例如 flow matching、真机 RL）：', oldTerms.join(', '));
+      if (why !== null) terms = why.split(/[,，]/).map((x) => x.trim()).filter(Boolean).slice(0, 20);
+      else terms = oldTerms;
+    }
+    if (score) state.signals.interests[pid] = { score, tags: terms };
+    else delete state.signals.interests[pid];
+    syncActionUI(pid);
+    api.interest(pid, score || null, terms).then((r) => {
+      if (!r || !r.ok) throw 0;
+      toast(score ? `已记录兴趣分 ${score}/5，将用于后续推荐` : '已清除兴趣分');
+    }).catch(() => {
+      if (prev) state.signals.interests[pid] = { score: prev };
+      else delete state.signals.interests[pid];
+      syncActionUI(pid);
+      toast('兴趣评分失败，已回滚');
+    });
     return;
   }
   if (btn.dataset.act === 'save') {
@@ -694,9 +733,12 @@ function showResults(items, { title, makeCount, emptyText }) {
   const html = items.map((it) => {
     if (it.pid && state.signals.hiddenSet.has(it.pid)) return '';
     shown++;
+    const preferenceWhy = (it.why || []).filter((x) => x.w > 0)
+      .map((x) => x.tag).slice(0, 2).join(' · ');
     return entryHTML(it, {
       rank: shown,
-      badge: it.date === 'ondemand' ? fmtTs(it.ts) : (it.date || ''),
+      badge: preferenceWhy ? `偏好匹配：${preferenceWhy}`
+        : (it.date === 'ondemand' ? fmtTs(it.ts) : (it.date || '')),
       date: it.date,
     });
   }).join('');
@@ -1269,6 +1311,7 @@ async function init() {
         votes: sig.votes || {},
         savedSet: new Set(sig.saved || []),
         hiddenSet: new Set(sig.hidden || []),
+        interests: sig.interests || {},
       };
     }
     state.dates = dRes.dates || [];
