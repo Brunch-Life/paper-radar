@@ -689,6 +689,12 @@ html.dark .degraded-note{background:rgba(214,90,90,.12)}
   background:rgba(255,214,64,.42);color:inherit;border-radius:1px;
   padding:.02em 0;cursor:pointer;transition:background .15s;
 }
+
+/* KaTeX math — source is protected before marked parses \(...\)/\[...\]. */
+.math-slot{color:inherit;max-width:100%}
+.math-slot.display{display:block;overflow-x:auto;overflow-y:hidden;padding:3px 0}
+.katex{color:inherit;font-size:1.02em}
+.katex-display{margin:.85em 0;overflow-x:auto;overflow-y:hidden}
 .article-body mark.hl:hover{background:rgba(255,214,64,.62)}
 html.dark .article-body mark.hl{background:rgba(214,158,46,.34);color:var(--ink)}
 html.dark .article-body mark.hl:hover{background:rgba(214,158,46,.5)}

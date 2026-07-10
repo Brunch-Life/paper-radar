@@ -102,7 +102,44 @@ function ensureMdLibs() {
 function mdToHtml(md) {
   if (!(window.marked && typeof window.marked.parse === 'function' && window.DOMPurify)) return null;
   ensureMdLibs();
-  return window.DOMPurify.sanitize(window.marked.parse(md || ''));
+  let mathId = 0;
+  const slot = (tex, display) => {
+    const encoded = encodeURIComponent(tex.trim());
+    return `<span class="math-slot${display ? ' display' : ''}" data-tex="${encoded}" data-math-id="${mathId++}">${escapeHtml(tex.trim())}</span>`;
+  };
+  // Protect TeX before marked parses it: marked treats \( as an escaped "("
+  // and otherwise destroys the delimiter KaTeX needs to recognize.
+  let source = String(md || '')
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, tex) => slot(tex, true))
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, tex) => slot(tex, false))
+    .replace(/(^|[^\\$])\$([^\n$]+?)\$/g, (_, lead, tex) => lead + slot(tex, false));
+  return window.DOMPurify.sanitize(window.marked.parse(source));
+}
+
+function renderMathSlots(root, attempt = 0) {
+  if (!root) return;
+  const slots = root.querySelectorAll('.math-slot:not([data-rendered])');
+  if (!slots.length) return;
+  if (!window.katex || typeof window.katex.render !== 'function') {
+    if (attempt < 20) setTimeout(() => renderMathSlots(root, attempt + 1), 250);
+    return;
+  }
+  slots.forEach((el) => {
+    let tex = '';
+    try { tex = decodeURIComponent(el.dataset.tex || ''); } catch { tex = el.textContent || ''; }
+    try {
+      window.katex.render(tex, el, {
+        displayMode: el.classList.contains('display'),
+        throwOnError: false,
+        strict: 'ignore',
+        trust: false,
+      });
+      el.dataset.rendered = '1';
+    } catch {
+      el.textContent = tex;
+      el.dataset.rendered = 'error';
+    }
+  });
 }
 
 function renderMarkdown(md, el, append) {
@@ -110,6 +147,7 @@ function renderMarkdown(md, el, append) {
   const out = html !== null ? html : `<pre class="md-fallback">${escapeHtml(md || '')}</pre>`;
   if (append) el.insertAdjacentHTML('beforeend', out);
   else { el.innerHTML = out; el.scrollTop = 0; }
+  renderMathSlots(el);
 }
 
 // 降级精读横幅：browse 兜底生成（未读全文），可信度有限，置于文章最顶
@@ -955,6 +993,7 @@ async function openPaper(pid, date, nav) {
     const topHtml = degradedNoteHTML(entry.degraded) + reviewCardHTML(entry.review);
     if (entry.html !== null && entry.html !== undefined) body.innerHTML = topHtml + entry.html;
     else { body.innerHTML = topHtml; renderMarkdown(entry.md, body, true); }   // append after card
+    renderMathSlots(body);
     $('#reader').scrollTop = 0;
     loadAnnotations(pid);                        // highlights + margin notes
     setupChat(pid);
@@ -1046,6 +1085,7 @@ function renderChatMsgs(history) {
   box.innerHTML = history.map((m) => (m.role === 'user'
     ? chatBubble('user', escapeHtml(m.content))
     : chatBubble('bot', botHtml(m.content)))).join('');
+  renderMathSlots(box);
   box.scrollTop = box.scrollHeight;
 }
 
