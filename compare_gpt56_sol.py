@@ -27,8 +27,9 @@ MODEL = os.environ.get("COMPARE_MODEL", "gpt-5.6-sol")
 RELAY = os.environ.get("RELAY_BASE", "").rstrip("/")
 KEY = os.environ.get("GPT_KEY", "")
 URL = os.environ.get("COMPARE_GPT_URL", "").strip() or (
-    RELAY.replace("/api", "/openai", 1) + "/v1/chat/completions"
+    RELAY.replace("/api", "/openai", 1) + "/v1/responses"
 )
+URL = URL.replace("/v1/chat/completions", "/v1/responses")
 
 JUDGE_PROMPT = """你是论文精读质量盲评专家。下面给出论文原文和两份匿名中文精读 A/B。
 你不知道作者或模型。必须逐份对照原文，不能因文风、模型猜测或自我偏好加分。
@@ -52,10 +53,9 @@ def call_chat(prompt: str, max_tokens: int, timeout: int = 900) -> tuple[str, di
         raise RuntimeError("source deepread.env first (RELAY_BASE/GPT_KEY required)")
     body = json.dumps({
         "model": MODEL,
-        "max_tokens": max_tokens,
+        "max_output_tokens": max_tokens,
         "stream": True,
-        "stream_options": {"include_usage": True},
-        "messages": [{"role": "user", "content": prompt}],
+        "input": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request(URL, data=body, headers={
         "Authorization": f"Bearer {KEY}",
@@ -63,22 +63,29 @@ def call_chat(prompt: str, max_tokens: int, timeout: int = 900) -> tuple[str, di
         "Accept": "text/event-stream",
     })
     chunks: list[str] = []
+    final = ""
     usage: dict = {}
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        for raw in response:
-            line = raw.strip()
-            if not line.startswith(b"data:"):
-                continue
-            payload = line[5:].strip()
-            if payload == b"[DONE]":
-                break
-            event = json.loads(payload)
-            usage = event.get("usage") or usage
-            delta = (event.get("choices") or [{}])[0].get("delta") or {}
-            content = delta.get("content")
-            if isinstance(content, str):
-                chunks.append(content)
-    return "".join(chunks).strip(), usage
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            for raw in response:
+                line = raw.strip()
+                if not line.startswith(b"data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload or payload == b"[DONE]":
+                    continue
+                event = json.loads(payload)
+                event_type = event.get("type", "")
+                if event_type == "response.output_text.delta":
+                    chunks.append(event.get("delta", ""))
+                elif event_type == "response.output_text.done":
+                    final = event.get("text", "") or final
+                elif event_type == "response.completed":
+                    usage = (event.get("response") or {}).get("usage") or usage
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:1000]
+        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
+    return (final or "".join(chunks)).strip(), usage
 
 
 def call_retry(prompt: str, max_tokens: int) -> tuple[str, dict]:

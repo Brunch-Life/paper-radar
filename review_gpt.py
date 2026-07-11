@@ -25,11 +25,9 @@ from pathlib import Path
 
 RELAY = os.environ.get("RELAY_BASE", "http://127.0.0.1:3000/api").rstrip("/")
 GPT_KEY = os.environ.get("GPT_KEY", "")
-# chat/completions (not /responses): gpt-5.5 is a reasoning model whose
-# /responses output can be reasoning-only with an empty message array; the
-# chat/completions shape returns final text reliably in choices[].message.
 URL = os.environ.get("REVIEW_GPT_URL", "").strip() \
-    or (RELAY.replace("/api", "/openai", 1) + "/v1/chat/completions")
+    or (RELAY.replace("/api", "/openai", 1) + "/v1/responses")
+URL = URL.replace("/v1/chat/completions", "/v1/responses")
 
 # provider switch: "gpt" (default, cross-model audit) or "anthropic" (fallback
 # while no GPT channel is available — a separate opus instance does the audit)
@@ -103,16 +101,31 @@ def fetch_original(pid: str) -> str:
 def call_gpt(text: str, timeout: int = 240) -> str:
     if not GPT_KEY:
         raise RuntimeError("GPT_KEY not set (source deepread.env)")
-    # max_tokens generous: gpt-5.5 spends reasoning tokens from the same budget
+    # Stream the Responses protocol: GPT-5.6-Sol no longer accepts Chat
+    # Completions, and large audit prompts need SSE to avoid gateway timeouts.
     body = json.dumps({
-        "model": MODEL, "max_tokens": 4000,
-        "messages": [{"role": "user", "content": text}],
+        "model": MODEL, "max_output_tokens": 4000, "stream": True,
+        "input": [{"role": "user", "content": text}],
     }).encode()
     req = urllib.request.Request(URL, data=body, headers={
         "Authorization": f"Bearer {GPT_KEY}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        data = json.loads(r.read())
-    return (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+    chunks: list[str] = []
+    final = ""
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        for raw in response:
+            line = raw.strip()
+            if not line.startswith(b"data:"):
+                continue
+            payload = line[5:].strip()
+            if not payload or payload == b"[DONE]":
+                continue
+            event = json.loads(payload)
+            event_type = event.get("type", "")
+            if event_type == "response.output_text.delta":
+                chunks.append(event.get("delta", ""))
+            elif event_type == "response.output_text.done":
+                final = event.get("text", "") or final
+    return (final or "".join(chunks)).strip()
 
 
 def call_anthropic(text: str, timeout: int = 240) -> str:

@@ -523,16 +523,16 @@ def _ask_relay_stream(system: str, messages: list, max_tokens: int = 3000,
             base = env.get("RELAY_BASE", RELAY_BASE).rstrip("/")
             key = env.get("GPT_KEY", "")
             url = env.get("REVIEW_GPT_URL", "").strip() or (
-                base.replace("/api", "/openai", 1) + "/v1/chat/completions"
+                base.replace("/api", "/openai", 1) + "/v1/responses"
             )
+            url = url.replace("/v1/chat/completions", "/v1/responses")
+            input_messages = [{"role": "system", "content": system}] + messages
             with requests.post(
                 url,
                 headers={"Authorization": f"Bearer {key}",
                          "content-type": "application/json"},
-                json={"model": ASK_MODEL, "max_tokens": max_tokens,
-                      "stream": True,
-                      "stream_options": {"include_usage": True},
-                      "messages": [{"role": "system", "content": system}] + messages},
+                json={"model": ASK_MODEL, "max_output_tokens": max_tokens,
+                      "stream": True, "input": input_messages},
                 stream=True, timeout=(20, 180),
             ) as r:
                 if r.status_code != 200:
@@ -554,10 +554,14 @@ def _ask_relay_stream(system: str, messages: list, max_tokens: int = 3000,
                         ev = json.loads(payload)
                     except ValueError:
                         continue
-                    choice = (ev.get("choices") or [{}])[0]
-                    content = (choice.get("delta") or {}).get("content")
-                    if isinstance(content, str):
-                        parts.append(content)
+                    if ev.get("type") == "response.output_text.delta":
+                        content = ev.get("delta")
+                        if isinstance(content, str):
+                            parts.append(content)
+                    elif ev.get("type") == "response.output_text.done" and not parts:
+                        content = ev.get("text")
+                        if isinstance(content, str):
+                            parts.append(content)
                 answer = "".join(parts).strip()
                 if answer:
                     return answer, ""
