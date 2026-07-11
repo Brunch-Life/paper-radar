@@ -42,6 +42,7 @@ DIGESTS_DIR.mkdir(parents=True, exist_ok=True)
 # paper_radar/scoring.py — Tier S/A/B/C design replaces flat TOPIC_KW.
 sys.path.insert(0, str(SKILL_ROOT))
 from paper_radar.scoring import topic_score, author_match, hf_bonus, HF_UPVOTE_CAP
+from paper_radar.preferences import preference_bonus
 
 # ARXIV_CATS: which arXiv categories to fetch
 ARXIV_CATS = ['cs.RO', 'cs.LG', 'cs.AI', 'cs.CV']
@@ -224,7 +225,8 @@ def score_paper(p: dict, boost_table: dict) -> dict:
     t_score, t_labels = topic_score(p['title'], p.get('abstract', ''))
     a_score, a_hits = author_match(p['authors'], boost_table)
     hf = hf_bonus(p.get('hf_upvotes', 0))  # cap from paper_radar.scoring
-    total = t_score + a_score + hf
+    pref, pref_hits = preference_bonus(p['title'], p.get('abstract', ''), p.get('authors', []))
+    total = round(t_score + a_score + hf + pref, 2)
 
     p['score'] = total
     p['score_breakdown'] = {
@@ -235,6 +237,8 @@ def score_paper(p: dict, boost_table: dict) -> dict:
         'hf_upvotes': p.get('hf_upvotes', 0),
         'hf_bonus_applied': hf,
         'hf_cap': HF_UPVOTE_CAP,
+        'preference_bonus': pref,
+        'preference_hits': pref_hits,
     }
     return p
 

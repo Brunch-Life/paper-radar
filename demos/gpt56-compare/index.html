@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GPT-5.6-Sol vs Opus — Paper Radar</title>
+  <link rel="stylesheet" href="style.css?v=2">
+  <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <a href="/" class="back">← Paper Radar</a>
+    <div>
+      <p class="kicker">MODEL FIELD TEST · 2026-07-08 · 18 PAPERS</p>
+      <h1>GPT-5.6-Sol <i>vs</i> Claude Opus 4.8</h1>
+      <p class="dek">同一论文全文、同一精读 skill；评委看到匿名 A/B 与原文。点击论文查看逐段对比。</p>
+    </div>
+  </header>
+
+  <main>
+    <section id="summary" class="summary" aria-live="polite"></section>
+    <div class="toolbar">
+      <label for="paper-select">论文</label>
+      <select id="paper-select"></select>
+      <button id="swap" type="button">交换左右</button>
+    </div>
+    <section id="verdict" class="verdict"></section>
+    <figure id="paper-figure" class="paper-figure" hidden>
+      <img id="paper-figure-img" alt="">
+      <figcaption>论文主图 · arXiv HTML</figcaption>
+    </figure>
+    <section class="compare" aria-label="模型输出对比">
+      <article class="pane" id="left-pane">
+        <header><span class="model" id="left-model"></span><span class="score" id="left-score"></span></header>
+        <div class="issues" id="left-issues"></div>
+        <div class="markdown" id="left-body"></div>
+      </article>
+      <article class="pane" id="right-pane">
+        <header><span class="model" id="right-model"></span><span class="score" id="right-score"></span></header>
+        <div class="issues" id="right-issues"></div>
+        <div class="markdown" id="right-body"></div>
+      </article>
+    </section>
+  </main>
+  <script src="app.js?v=2"></script>
+</body>
+</html>
