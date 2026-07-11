@@ -33,6 +33,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
 import uvicorn
@@ -121,6 +122,22 @@ def _arxiv_id(url: str):
 
 def _paper_pid(url: str, aid) -> str:
     return aid if aid else "od_" + _job_id(url)
+
+
+def _source_tag(url: str) -> str:
+    """Short provenance tag shown in the external-paper inbox."""
+    host = (urlsplit(url).hostname or "").lower()
+    if host in {"github.com", "www.github.com", "raw.githubusercontent.com"}:
+        return "github"
+    if host == "huggingface.co":
+        return "huggingface"
+    if host == "gitlab.com":
+        return "gitlab"
+    if host in {"x.com", "www.x.com", "twitter.com", "www.twitter.com"}:
+        return "x"
+    if urlsplit(url).path.lower().endswith(".pdf"):
+        return "pdf"
+    return "external"
 
 
 def _md_path(jid: str) -> Path:
@@ -222,7 +239,9 @@ def _persist(jid: str, url: str, aid, md: str, degraded: bool = False) -> None:
         _atomic_write_json(OD_DEEP / f"{pid}.json", {
             "pid": pid, "arxiv_id": aid or "", "url": url,
             "title": _first_title(md), "tagline": _section1_tagline(md),
-            "tags": ["on-demand"], "ts": time.time(), "status": "done",
+            "tags": ["on-demand", _source_tag(url)],
+            "source_channel": _source_tag(url),
+            "ts": time.time(), "status": "done",
             "degraded": degraded,
         })
         mark = OD_DEEP / f"{pid}.degraded"
@@ -250,6 +269,7 @@ def _spawn_review(pid: str) -> None:
         try:
             env = os.environ.copy()
             _load_env_file(env, REPO / "deepread.env")   # GPT_KEY / RELAY_BASE
+            env["REVIEW_MODEL"] = "gpt-5.6-sol"
             subprocess.run(
                 [sys.executable, str(REPO / "review_gpt.py"), pid,
                  str(OD_DEEP / f"{pid}.md"), str(OD_DEEP / f"{pid}.review.json")],

@@ -66,6 +66,28 @@ def fetch_text(aid: str) -> str:
 _UA = {"User-Agent": "Mozilla/5.0 (paper-radar deepread)"}
 
 
+def normalize_fetch_url(url: str) -> str:
+    """Turn code-hosting preview links into downloadable paper URLs.
+
+    Keep this inside the fetch layer so the original human-facing URL remains
+    stable in the on-demand sidecar and is what the UI opens as "source".
+    """
+    try:
+        parts = urllib.parse.urlsplit((url or "").strip())
+    except ValueError:
+        return url
+    host = (parts.hostname or "").lower()
+    path = parts.path
+    is_pdf = path.lower().endswith(".pdf")
+    if is_pdf and host in {"github.com", "www.github.com"} and "/blob/" in path:
+        path = path.replace("/blob/", "/raw/", 1)
+    elif is_pdf and host == "huggingface.co" and "/blob/" in path:
+        path = path.replace("/blob/", "/resolve/", 1)
+    elif is_pdf and host == "gitlab.com" and "/-/blob/" in path:
+        path = path.replace("/-/blob/", "/-/raw/", 1)
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, parts.query, ""))
+
+
 def _pdf_bytes_to_text(data: bytes) -> str:
     if len(data) < 10000:
         return ""
@@ -106,8 +128,9 @@ def fetch_url_text(url: str) -> str:
     """Full text for ANY paper URL (non-arXiv): a PDF link → pdftotext; an HTML
     page → strip its text AND download any linked .pdf (the full paper) and
     extract that too. Server-side download has no WebFetch 10MB limit."""
+    fetch_url = normalize_fetch_url(url)
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=_UA), timeout=120) as r:
+        with urllib.request.urlopen(urllib.request.Request(fetch_url, headers=_UA), timeout=120) as r:
             ctype = (r.headers.get("Content-Type") or "").lower()
             data = r.read(80_000_000)
             final_url = r.geturl()
@@ -121,7 +144,7 @@ def fetch_url_text(url: str) -> str:
     m = re.search(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, re.I)
     if m:
         try:
-            pdf_url = urllib.parse.urljoin(final_url, m.group(1))
+            pdf_url = normalize_fetch_url(urllib.parse.urljoin(final_url, m.group(1)))
             with urllib.request.urlopen(urllib.request.Request(pdf_url, headers=_UA), timeout=120) as r2:
                 pdf_txt = _pdf_bytes_to_text(r2.read(80_000_000))
         except Exception:
@@ -141,18 +164,24 @@ def build_prompt(src_url: str, text: str) -> str:
 
 
 def call_opus(prompt: str, timeout: int = 300):
-    """Streamed SSE call; streaming prevents proxy idle timeouts on long jobs."""
+    """Streamed (SSE) opus call. Streaming is essential through the packyapi
+    gateway: a full-text prompt (100k–400k chars) + 16k-token generation takes
+    minutes, and a NON-streamed request looks idle to the proxy the whole time —
+    which is exactly what returned HTTP 500/504. With stream=True, SSE chunks
+    flow continuously so `timeout` only trips on a real stall (no bytes for
+    `timeout` seconds), never on a long-but-healthy generation."""
     if not KEY:
         raise RuntimeError("SONNET_KEY not set (source deepread.env)")
-    body = json.dumps({"model": "claude-opus-4-8", "max_tokens": 16000, "stream": True,
+    body = json.dumps({"model": "claude-opus-4-8", "max_tokens": 16000,
+                       "stream": True,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(URL, data=body, headers={
         "x-api-key": KEY, "anthropic-version": "2023-06-01",
         "anthropic-beta": BETA, "content-type": "application/json"})
     parts, usage = [], {}
-    resp = urllib.request.urlopen(req, timeout=timeout)
+    resp = urllib.request.urlopen(req, timeout=timeout)   # HTTP 4xx/5xx raise here
     try:
-        for raw in resp:
+        for raw in resp:                                  # iterate SSE lines
             line = raw.decode("utf-8", "ignore").strip()
             if not line.startswith("data:"):
                 continue
@@ -212,7 +241,7 @@ def main():
     prompt = build_prompt(src, text)
     attempts = 4
     for attempt in range(1, attempts + 1):
-        backoff = min(60, 5 * 2 ** (attempt - 1))
+        backoff = min(60, 5 * 2 ** (attempt - 1))   # 5, 10, 20, 40 (capped 60)
         try:
             md, usage = call_opus(prompt)
         except Exception as ex:
