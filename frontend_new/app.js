@@ -953,21 +953,21 @@ async function showRecommend() {
 async function showOndemand() {
   const seq = ++viewSeq;
   setSeg('btn-ondemand');
-  setStatus('加载即时精读历史…');
+  setStatus('加载外部论文收件箱…');
   try {
     const res = await api.ondemand();
     if (seq !== viewSeq) return;
     showResults(res.papers || [], {
-      title: '⚡ 即时精读历史',
+      title: '📥 外部论文收件箱',
       makeCount: (n) => `${n} 篇`,
-      emptyText: '还没有 — 去顶部贴个 arXiv 链接试试',
+      emptyText: '还没有 — 把从 X、GitHub 或项目页看到的论文链接贴到顶部',
     });
     setStatus('');
   } catch (e) {
     if (seq === viewSeq) {
       setSeg(null);
       setStatus(`加载失败: ${e.message}`, true);
-      showResultsError('⚡ 即时精读历史', `加载失败：${e.message}`, showOndemand);
+      showResultsError('📥 外部论文收件箱', `加载失败：${e.message}`, showOndemand);
     }
   }
 }
@@ -1069,6 +1069,7 @@ async function openPaper(pid, date, nav) {
         md,
         title: extractTitle(md) || pid,
         arxiv_url: r.arxiv_url || '',
+        link_label: r.arxiv_id ? 'arXiv ↗' : '源链接 ↗',
         review: r.review || null,               // gpt/opus audit sidecar
         degraded: !!r.degraded,                 // browse-fallback = full text not read
       };
@@ -1077,7 +1078,11 @@ async function openPaper(pid, date, nav) {
     if (seq !== state.openSeq) return;
     $('#reader-crumb').textContent = entry.title;
     const ax = $('#reader-arxiv');
-    if (entry.arxiv_url) { ax.href = entry.arxiv_url; ax.hidden = false; }
+    if (entry.arxiv_url) {
+      ax.href = entry.arxiv_url;
+      ax.textContent = entry.link_label || (/^od_/.test(pid) ? '源链接 ↗' : 'arXiv ↗');
+      ax.hidden = false;
+    }
     else { ax.hidden = true; }
     const body = $('#article');
     const topHtml = degradedNoteHTML(entry.degraded) + reviewCardHTML(entry.review);
@@ -1310,14 +1315,14 @@ async function submitOndemand() {
   if (!url) return;                       // 输入框不清空，失败可直接重试
   const seq = ++state.openSeq;
   pushReaderHistory('deepread');          // back / 侧滑同样能退出精读页
-  $('#reader-crumb').textContent = '即时精读';
+  $('#reader-crumb').textContent = '外部论文精读';
   $('#reader-arxiv').hidden = true;
   $('#reader-actions').dataset.pid = '';
   syncActionUI('');                       // clear the previous paper's 👍🔖 highlights
   $('#reader-tags').innerHTML = '';
   $('#article').innerHTML = `
     <div class="dr-loading">
-      <p class="dr-msg">正在下载并解析论文…<br><span class="dr-sub">约 1–3 分钟；可先返回目录，结果会缓存并进入「即时精读历史」</span></p>
+      <p class="dr-msg">正在下载并解析外部论文…<br><span class="dr-sub">约 1–3 分钟；可先返回目录，结果会缓存并进入「外部论文收件箱」</span></p>
       <div class="dr-progress"><div class="dr-progress-fill" id="dr-fill"></div></div>
       <p class="dr-elapsed" id="dr-elapsed">已用 0s</p>
     </div>`;
@@ -1351,7 +1356,7 @@ async function submitOndemand() {
     if (fill) fill.style.width = '100%';
     setTimeout(() => {
       if (seq !== state.openSeq) return;  // 180ms 窗口内用户可能已返回目录
-      $('#reader-crumb').textContent = extractTitle(md) || '即时精读';
+      $('#reader-crumb').textContent = extractTitle(md) || '外部论文精读';
       renderMarkdown(md, $('#article'));
       $('#reader').scrollTop = 0;
       if (state.openPid) {
